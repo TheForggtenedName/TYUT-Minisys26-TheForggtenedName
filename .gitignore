@@ -55,6 +55,9 @@ Desktop.ini
 *.tar.gz
 *.rar
 
+# 参考/临时仓库
+TemporaryRepository/
+
 # 学生资料包二进制文件
 */学生资料包/
 
