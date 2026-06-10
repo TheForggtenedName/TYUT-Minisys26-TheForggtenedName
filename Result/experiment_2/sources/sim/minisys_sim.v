@@ -9,23 +9,17 @@ module minisys_sim();
 
     // output
     wire [23:0] led2N4;
-    wire [7:0]  seg;
-    wire [3:0]  an;
 
     minisys u (
-        .fpga_clk   (clk),
-        .fpga_rst   (rst),
-        .led2N4     (led2N4),
-        .switch2N4  (switch2N4),
-        .seg        (seg),
-        .an         (an),
-        .start_pg   (0),
-        .rx         (1),
-        .tx         ()
-    );
-
+        .fpga_clk(clk),
+        .fpga_rst(rst),
+        .led2N4(led2N4),
+        .switch2N4(switch2N4),
+        .start_pg(0),
+        .rx(1),
+        .tx());
     initial begin
         #7000 rst = 0;
     end
-    always #5 clk = ~clk;
+    always #5 clk=~clk;
 endmodule

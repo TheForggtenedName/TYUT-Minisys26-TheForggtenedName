@@ -44,9 +44,7 @@ module Idecode32 (
     assign read_data_2 = register[read_register_2_address];
     
     always @* begin
-        if (Jal == 1'b1)
-            write_register_address = 5'b11111;     // JAL implicitly writes $31 ($ra)
-        else if (RegDst == 1'b1)
+        if (RegDst == 1'b1)
             write_register_address = write_register_address_1;
         else
             write_register_address = write_register_address_0;

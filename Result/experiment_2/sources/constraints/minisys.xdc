@@ -56,28 +56,3 @@ set_property -dict {IOSTANDARD LVCMOS33 PACKAGE_PIN T5 } [get_ports {switch2N4[3
 set_property -dict {IOSTANDARD LVCMOS33 PACKAGE_PIN T4 } [get_ports {switch2N4[2]}]
 set_property -dict {IOSTANDARD LVCMOS33 PACKAGE_PIN R4 } [get_ports {switch2N4[1]}]
 set_property -dict {IOSTANDARD LVCMOS33 PACKAGE_PIN W4 } [get_ports {switch2N4[0]}]
-
-# ============================================================
-# 7-Segment Display (digitube) — TODO: VERIFY ALL PINS
-# These are placeholder pin assignments. You MUST replace them
-# with the actual Minisys board pin numbers from the schematic
-# or experiment design guide.
-# seg[7:0] = {dp, g, f, e, d, c, b, a} (common anode: 0=ON)
-# an[3:0]  = digit select (active low)
-# ============================================================
-
-# Segment selects — TODO: replace with actual pins
-# set_property -dict {IOSTANDARD LVCMOS33 PACKAGE_PIN <PIN>} [get_ports {seg[7]}]
-# set_property -dict {IOSTANDARD LVCMOS33 PACKAGE_PIN <PIN>} [get_ports {seg[6]}]
-# set_property -dict {IOSTANDARD LVCMOS33 PACKAGE_PIN <PIN>} [get_ports {seg[5]}]
-# set_property -dict {IOSTANDARD LVCMOS33 PACKAGE_PIN <PIN>} [get_ports {seg[4]}]
-# set_property -dict {IOSTANDARD LVCMOS33 PACKAGE_PIN <PIN>} [get_ports {seg[3]}]
-# set_property -dict {IOSTANDARD LVCMOS33 PACKAGE_PIN <PIN>} [get_ports {seg[2]}]
-# set_property -dict {IOSTANDARD LVCMOS33 PACKAGE_PIN <PIN>} [get_ports {seg[1]}]
-# set_property -dict {IOSTANDARD LVCMOS33 PACKAGE_PIN <PIN>} [get_ports {seg[0]}]
-
-# Digit selects — TODO: replace with actual pins
-# set_property -dict {IOSTANDARD LVCMOS33 PACKAGE_PIN <PIN>} [get_ports {an[3]}]
-# set_property -dict {IOSTANDARD LVCMOS33 PACKAGE_PIN <PIN>} [get_ports {an[2]}]
-# set_property -dict {IOSTANDARD LVCMOS33 PACKAGE_PIN <PIN>} [get_ports {an[1]}]
-# set_property -dict {IOSTANDARD LVCMOS33 PACKAGE_PIN <PIN>} [get_ports {an[0]}]
