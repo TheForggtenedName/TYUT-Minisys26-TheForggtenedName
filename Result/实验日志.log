@@ -813,3 +813,300 @@
   - 所有 always/assign 并行执行，不存在先后顺序
 
   下一步学习内容：第 2 块 wire 声明（CPU 内部数据线）和第 4 块 6 个模块实例化
+
+================================================================================
+  2026年6月6日（周五）— 数码管模块验证 + 本周工作总结
+================================================================================
+
+[上午 09:00] 数码管模块 digitube.v 功能审核：
+
+  检查动态扫描逻辑：
+  - 23MHz 时钟 / 2^13(8192) = 约 2.8kHz 扫描频率
+  - 每个数码管每秒刷新约 1400 次，远超 50Hz 人眼闪烁阈值
+  - 符合设计要求
+
+  验证段码译码表：
+  - 逐项核对 bcd_to_seg 函数中 0-9 及 A-F 共 16 个值的 8 位段码
+  - 确认共阳极编码规则：段亮 = 0（输出低电平）、段灭 = 1（输出高电平）
+  - seg[7:0] = {dp, g, f, e, d, c, b, a} 位序正确
+  - 0 的段码: 11000000（仅 g=1 灭，其余亮）= 正确
+  - 1 的段码: 11111001（仅 b,c 亮）= 正确
+  - ... 全部 16 个段码与标准七段数码管编码一致
+
+  验证位选信号：
+  - scan_sel=0 → an=1110（digit0 选通，右数码管）
+  - scan_sel=1 → an=1101（digit1 选通，左数码管）
+  - an[3:2] 恒为 1（未使用的高两位，仅有 2 个数码管）
+  - 综合 warning: seg[7] driven by constant 1、an[3]/an[2] driven by constant 1
+    → 正常，dp 段未使用恒灭，高两位未选通
+
+  确认写入格式：write_data[7:4] → digit1（左数码管高位）、write_data[3:0] → digit0（右数码管低位）
+
+[上午 10:00] 实验二代码一致性检查：
+
+  逐文件对比实验二 vs 实验一基线：
+
+  与实验一完全相同的 7 个文件（无需任何修改）：
+    ifetc32.v     — 取指单元，完全相同
+    executs32.v   — 执行单元(ALU)，完全相同
+    dmemory32.v   — 数据 RAM 封装（我负责），完全相同
+    programrom.v  — 程序 ROM，完全相同
+    leds.v        — LED 输出，完全相同
+    switchs.v     — 拨码开关输入，完全相同
+    uart_bmpg.v + upg.v — UART 烧写器，完全相同
+
+  我负责修改的 5 个文件（均已完成）：
+    control32.v   — 重写：17 端口（+5 新端口），IO 地址译码，JR 排除
+    idecode32.v   — 修改：JAL→$31 优先判断（修复 Bug #7）
+    memorio.v     — 修改：+DigitubeCtrl 输出
+    ioread.v      — 重写：+digitube 读通道 + 修 latch
+    minisys.v     — 重写：全 17 端口连接 + digitube 实例化 + seg/an 顶层端口
+
+  确认实验一的 workaround `assign memread = memreg;` 已在实验二中删除，
+  现在 memread 由 control32 的 .MemRead 端口直接驱动。
+
+[上午 11:00] 数码管测试程序检查：
+
+  digitube_test.asm 逻辑：
+  - 初始化 $1-$31 全部寄存器
+  - 主循环：递增计数器 → 拆分为两个 BCD 数字（移位+掩码）
+  - 通过 ORI 合成写入值 → SW 写入 0xFFFFFC80
+  - 含延迟循环控制刷新速率
+  - 确认可通过 Minisys 汇编器（MinisysAv2.0.exe）正确编译为 .coe
+
+[下午] 本周工作总结（6/2 - 6/6）：
+
+  本周完成实验二完整开发流程：
+  第 1 步（6/2）：理论预习——IO 地址映射、Memory-Mapped I/O 原理、数码管接口设计
+  第 2 步（6/4）：队友代码审查（13 个问题诊断，完成度 ~20%）
+  第 3 步（6/4）：基于实验一从零重建实验二（8 文件修改 + 3 文件新建）
+  第 4 步（6/4）：Vivado 仿真/综合/优化/布局/布线全流程通过
+  第 5 步（6/5）：Git/GitHub 工程化管理 + minisys.v 顶层学习
+  第 6 步（6/6）：数码管功能验证 + 代码一致性检查
+
+  关键成果：
+  1. 控制器扩展：13 → 17 控制信号，新增 IO 地址译码能力
+  2. 数码管模块新建：digitube.v（动态扫描 2.8kHz + BCD→7段译码 + 回读支持）
+  3. 实验一三个 Bug 全部修复：#7(JAL 写回)、#8(JR RegWrite)、ioread latch
+  4. 交付包封装：Minisys1_CPU_实验二交付包.zip（24 文件，78KB）
+
+  唯一阻塞项：数码管 12 引脚约束（seg[7:0] + an[3:0]）需从 Minisys 板原理图获取
+
+  [17:00] 本周工作结束
+
+================================================================================
+  2026年6月9日（周一）— 实训报告撰写（上）：框架 + 存储器系统 + 数据通路
+================================================================================
+
+[上午 09:30] 开始撰写计算机系统能力综合实训报告。
+
+  按照实训报告模板建立八大章节结构：
+    一、需求分析      — 31条指令清单 + 实验一/二功能需求表
+    二、概要设计      — 系统架构图 + 模块划分 + IO地址空间映射
+    三、详细设计      — 每个模块的实现原理（重点：我负责的5个模块）
+    四、调试分析      — 全部13个问题的分类与解决过程
+    五、用户手册      — 工程创建/IP配置/仿真/综合实现/下板步骤
+    六、测试结果      — 实验一/二仿真+综合+实现数据
+    七、项目总结      — 技术成果 + 经验教训
+    八、遗留事项      — 数码管引脚约束 + 段码极性 + 下板实测
+
+[上午 10:30] 撰写详细设计 — 存储器系统章节：
+
+  dmemory32.v 详解：
+  （1）时钟反相原理：
+    wire ram_clk = !ram_clk_i;
+    Block RAM 读操作有硬件延迟——地址在时钟上升沿锁存，数据下一个上升沿
+    才稳定输出。如果 CPU 在同一个上升沿给出地址又锁存数据，会锁存到上一次的
+    值。时钟反相后给了地址半个周期的"提前量"，确保 CPU 锁存到正确数据。
+
+  （2）CPU/UART 双模式切换（kickOff 信号）：
+    wire kickOff = upg_rst_i | (~upg_rst_i & upg_done_i);
+    kickOff=0（UART 烧写中）：RAM 使用 UART 时钟和地址
+    kickOff=1（烧写完成或复位）：RAM 切回 CPU 时钟和地址
+
+  memorio.v 详解——四个核心功能：
+  （1）地址透传：assign address = caddress;
+       ALU 算出的 32 位地址直接给 RAM，即使访问 IO 也会传过去
+       （但 RAM 写使能没开就不会写入，无副作用）
+  （2）写数据路由：memwrite=1 或 iowrite=1 → 输出 wdata；否则 → 32'hZZZZZZZZ
+       （高阻态——不驱动总线，避免多模块争抢总线）
+  （3）读数据路由：memread=1 → 选 RAM 的 mread_data；否则 → IO 的 ioread_data
+  （4）IO 片选译码：
+       LEDCtrl:    caddress[31:4]==28'hFFFFFC6
+       SwitchCtrl: caddress[31:4]==28'hFFFFFC7
+       DigitubeCtrl: caddress[31:4]==28'hFFFFFC8（实验二新增）
+       取 [31:4] 而非 [31:0] 的原因：低 4 位是外设内部偏移量，
+       LED 分两次写（偏移0低16位、偏移4高8位），不应参与基地址比较
+
+  ioread.v 详解：
+  - 多路选择器，将各 IO 设备的读数据汇总返回 CPU
+  - 实验二新增 digitube 读通道
+  - 实验二修复 latch：所有 else 分支赋 16'b0（确定值），而非自赋值
+
+[下午 14:00] 撰写详细设计 — 数据通路整合章节：
+
+  以 ORI $1, $0, 0x1D（机器码 0x3401001D）为例走完整数据通路：
+
+    STEP 1: ifetc32  — PC=0x00 → ROM[0x00] → instruction=0x3401001D
+    STEP 2: idecode32 — 拆出 rs=0, rt=1, imm=0x001D
+                       读 $0=0, 符号扩展 → sign_extend=0x0000001D
+    STEP 3: control32 — opcode=001101 → RegWrite=1, ALUSrc=1, RegDst=0 ...
+    STEP 4: executs32 — ALU 算 OR(0, 0x001D) → alu_result=0x0000001D
+    STEP 5: memorio   — 地址=0x0000001D, 高22位=0 → RAM 访问, 非 IO
+                       LEDCtrl=0, SwitchCtrl=0, DigitubeCtrl=0
+    STEP 6: idecode32 — RegWrite=1 → $1 = ALU_result
+
+  "交通枢纽"的角色：访存阶段决定数据往哪里写、从哪里读。
+
+[下午 16:00] 撰写仿真验证章节（我负责的 minisys_sim.v）：
+
+  我的三处修改：
+  （1）修复模板 bug：删除第 45 行重复的 endmodule
+  （2）修正时钟周期：#10 → #5（50MHz → 100MHz，匹配 Y18 晶振）
+  （3）搭建完整测试环境：
+      - reg rst = 1（上电复位）
+      - #7000 rst = 0（等 PLL 锁定后释放）
+      - always #5 clk = ~clk（100MHz）
+      - switch2N4 = 24'h5a078f（预设拨码开关值）
+
+  关键设计考量：
+  - #7000 的延迟 = cpuclk IP 的 PLL/MMCM 锁定时间（5-7μs）
+  - 100MHz 晶振 → cpuclk 内部 PLL 分频 → 23MHz CPU 时钟
+  - start_pg=0 不触发 UART 烧写
+
+[下午 17:30] 今日工作结束。实训报告已写完：需求分析 + 概要设计 + 详细设计
+  （存储器系统 + 数据通路 + 仿真验证）。
+
+================================================================================
+  2026年6月10日（周二）— 实训报告撰写（下）：调试分析 + 用户手册 + 测试结果
+================================================================================
+
+[上午 09:00] 撰写调试分析章节：
+
+  按来源分类整理全部 14 个问题：
+
+  一、原始模板的 Bug（6个）：
+    #1 uart_bmpg_0 模块名 vs IP 目录 upg 不匹配
+    #2 minisys_sim.v 重复 endmodule
+    #3 仿真时钟 50MHz vs 板载 100MHz 不匹配
+    #4 xdc CLOCK_DEDICATED_ROUTE 被注释（P5 引脚 BUFG 布线失败）
+    #5 ioread.v 组合逻辑自赋值 latch（6/4 实验二已修复）
+    #6 .coe 中文路径加载失败
+
+  二、自引入的逻辑 Bug（2个）：
+    #7 JAL 写回目标寄存器地址错误（潜伏 Bug）
+       原因：JAL 无 rd/rt 字段，RegDst=0 选了 instruction[20:16]（跳转地址的 5 个 bit）
+       恰好：测试程序 bit[20:16]=00000 → 选 $0 → 写保护拦截
+       修复：Jal 优先判断 → write_register_address=5'b11111（显式写 $31/$ra）
+    #8 JR 指令 RegWrite 未排除（潜伏 Bug）
+       原因：JR 属于 R 型（opcode=000000）→ R_format=1 → RegWrite=1
+       恰好：JR 的 rd 字段恰好=00000 → 写 $0 → 写保护拦截
+       修复：RegWrite = ((R_format && !Jrn) || I_format || Lw || Jal)
+
+  三、工程管理问题（3个）：
+    #9  仿真时间不够 PLL 未锁定
+    #10 CSG324 vs FGG484 封装选错
+    #11 .v 文件 GBK 编码中文乱码
+
+  四、芯片切换连锁问题（3个）：
+    #12 IP 核锁定（CSG324→FGG484）
+    #13 launch_runs 缓存脚本芯片写死为旧芯片
+    #14 write_bitstream 缺少文件路径报错
+
+  重点分析"恰好不暴露"的 Bug 特征：
+  - 两个潜伏 Bug 都被 $0 写保护同时"救"了
+  - 仿真中完全不可见：PC 正确跳转、寄存器值正确、ALU 结果正确
+  - 换一个测试程序（JAL 跳转地址 bit[20:16]≠0）立即暴露——随机寄存器被静默写入
+  - 教训：仿真通过 ≠ 代码正确，人工代码审查不可替代
+
+[上午 10:30] 撰写用户手册章节：
+
+  工程创建：Vivado 2019.2 → 芯片 xc7a100tfgg484-1 → 添加源文件 + xdc + edif
+
+  IP 核配置（复现步骤）：
+  - cpuclk (Clocking Wizard v6.0): 100MHz→23MHz(CPU)+10MHz(UART)
+    MMCM_DIVCLK_DIVIDE=5, CLKFBOUT_MULT_F=46.0, CLKOUT0_DIVIDE_F=40.0
+  - prgrom (Block Memory Generator v8.4): Single Port ROM, 32bit×16384
+    加载 prgmip32.coe（由 .asm 汇编生成）
+  - ram (Block Memory Generator v8.4): Single Port RAM, 32bit×16384
+    加载 dmem32.coe
+
+  仿真运行：
+    1. generate_target simulation [get_ips]
+    2. Run Behavioral Simulation
+    3. Tcl: run 20000ns（默认 1000ns 不够 PLL 锁定）
+    4. 关键观察信号：clock, rst, instruction, pc_plus_4, alu_result
+
+  综合实现（命令行方式，绕过 launch_runs 缓存脚本）：
+    synth_design -top minisys -part xc7a100tfgg484-1
+    opt_design
+    place_design
+    route_design
+    write_bitstream -force <完整路径>/minisys.bit
+
+  重要注意事项：
+  - .coe 文件路径必须全英文（Vivado 2019.x 非 ASCII 路径 bug）
+  - 不要使用 launch_runs（缓存 .tcl 脚本芯片写死）
+  - write_bitstream 必须带完整文件路径
+
+  下板测试：
+    1. Minisys 汇编器编译 .asm → .coe
+    2. .coe 加载到 prgrom IP → 重新生成比特流
+    3. USB-JTAG 下载到 Minisys 实验板
+    4. 预期：LED 按程序亮灭，拨码开关可读，数码管交替显示无闪烁
+
+[下午 14:00] 撰写测试结果章节：
+
+  实验一仿真五组测试数据：
+    组1（7000ns）：  基础心跳 — clock=1, rst=0  ✓
+    组2（20000ns）： ORI 指令 — pc_plus_4=0x78, alu_result=0x1d  ✓
+    组3（30000ns）： LW/SW/ALU — memwrite=0, alu_result=0x55  ✓
+    组4（130000ns）：分支/跳转 — PC 非顺序: 0x8C→0x3C→0xA0  ✓
+    组5（200000ns）：长时运行 — PC 回到 0x78（BNE 循环正确）  ✓
+
+  实验二仿真数据：
+    仿真编译：17 模块全部通过，Built simulation snapshot 成功
+    20000ns 运行：clock=1, rst=0, instruction=0x20020099, pc_plus_4=0x20
+    5ms 长时运行：PC=0xAC，程序正常循环
+
+  综合实现数据（实验二）：
+    综合：0 Error，LUT6=1203, FDRE=1053, digitube=41 cells
+    优化：0 Error, 0 Warning
+    布局：0 Error, WNS=0.911ns
+    布线：0 Error, 0 unrouted nets, WNS=-1.843ns（跨时钟域，与实验一一致）
+    比特流：待数码管引脚约束（12 端口无 IOSTANDARD/LOC）
+
+  FPGA 资源利用率（实验二）：
+    LUT6: 1203 / 63400  (~1.9%)
+    FDRE: 1053 / 126800 (~0.8%)
+    CARRY4: 32 / 15850  (~0.2%)
+    BUFG: 1 / 32        (3.1%)
+    BRAM: 3 / 135       (2.2%)
+    digitube 模块新增：41 cells
+
+  31 条指令覆盖率：100%（ORI/ANDI/XORI/ADDI LW SW ADD SUB SUBU ADDU AND OR XOR NOR
+                        SLT SLTI SLTIU BEQ BNE J JAL JR SLL SRL SRA SLLV SRLV SRAV LUI）
+
+[下午 15:30] 撰写项目总结章节：
+
+  技术成果：
+  - 实验一：32位单周期MIPS CPU，31条指令全覆盖，全流程闭环
+  - 实验二：控制器IO地址译码扩展，数码管外设添加，三个Bug全修复
+  - 个人贡献：存储器系统3模块 + 顶层集成minisys.v(59处占位符) + 仿真验证
+
+  六条经验教训（按重要性排序）——
+  1. 仿真通过 ≠ 代码正确（Bug #7、#8 的"恰好不暴露"案例）
+  2. 模板代码不可轻信（重复 endmodule、注释掉的约束、命名不一致）
+  3. Vivado 工程路径必须全英文（.coe 加载失败）
+  4. 芯片封装和约束必须一致（CSG324≠FGG484）
+  5. PLL/MCM 锁定时间影响仿真（前几微秒 clock=0 正常）
+  6. 团队协作需要强集成（队友代码完成度 20%，从零重建更高效）
+
+[下午 17:00] 撰写遗留事项章节：
+
+  1. 数码管 12 引脚约束（seg[7:0]+an[3:0]）未补充——需 Minisys 板原理图
+  2. 数码管段码极性未确认——当前按共阳极（0=亮），若是共阴极需翻转所有段码位
+  3. 数码管测试程序未在仿真中验证——建议使用 digitube_test.asm 替代 soctest.asm
+  4. 数字逻辑未下板实测——仿真/综合/实现均通过，需真实硬件确认
+
+  实训报告全部八章完成。今日工作结束。
